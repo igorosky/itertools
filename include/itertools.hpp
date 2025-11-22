@@ -4,36 +4,33 @@
 #include <type_traits>
 #include <utility>
 #include "defer.hpp"
-#include "optional.hpp"
 
 namespace itertools {
-struct DefaultEvaluator {
-  template <typename Iter>
-  void operator()(Iter& iter) const {
-    ++iter;
-  }
-};
-
 template <typename T, typename Generator>
 class Iterable {
-  using type = std::conditional_t<
-    std::is_lvalue_reference_v<T>,
-    std::remove_reference_t<T>*,
-    std::remove_reference_t<T>
-  >;
-  static_assert(std::is_invocable_r_v<Optional<type>, Generator>,
-    "Generator must be callable and return Optional<T>");
-
 public:
   class Iterator {
   public:
+    using stored_type = std::conditional_t<
+      std::is_lvalue_reference_v<T>,
+      std::add_pointer_t<std::remove_reference_t<T>>,
+      std::remove_reference_t<T>
+    >;
+
     using value_type = T;
+    struct iterator_category : public std::input_iterator_tag, std::output_iterator_tag { };
+    using difference_type = std::ptrdiff_t;
+    using pointer = std::add_pointer_t<std::remove_reference_t<value_type>>;
+    using reference = std::add_lvalue_reference_t<value_type>;
+
+    static_assert(std::is_invocable_r_v<std::optional<stored_type>, Generator>,
+      "Generator must be callable and return std::optional<T> - if T is a reference, it must return std::optional<T*>");
 
   private:
     friend class Iterable<T, Generator>;
 
-    Optional<type> _value;
-    Optional<Generator> _generator;
+    std::optional<stored_type> _value;
+    std::optional<Generator> _generator;
 
 
     Iterator() { }
@@ -43,8 +40,14 @@ public:
       _generator(std::move(generator)) { }
 
   public:
-    void operator++() {
+    Iterator& operator++() {
       _value = _generator.value()();
+      return *this;
+    }
+    Iterator operator++(int) {
+      auto temp = *this;
+      _value = _generator.value()();;
+      return temp;
     }
     value_type operator*() {
       if constexpr (std::is_lvalue_reference_v<T>) {
@@ -56,13 +59,13 @@ public:
     bool operator!=(const Iterator& other) const {
       return _value.has_value() != other._value.has_value();
     }
-    Optional<type> next() {
+    std::optional<stored_type> next() {
       IT_DEFER(([this, not_last = _value.has_value()]() {
         if (not_last) {
           ++(*this);
         }
       }));
-      return Optional<type>(std::move(_value));
+      return std::optional<stored_type>(std::move(_value));
     }
   };
 
@@ -74,13 +77,16 @@ public:
   Iterable(Generator&& generator)
     : _begin(std::move(generator)) { }
 
-  // Shall be called once
   Iterator begin() {
-    return std::move(_begin);
+    return _begin;
   }
-  // Shall be called once
   Iterator end() const {
-    return std::move(_end);
+    return _end;
+  }
+
+  template <typename E, typename ... Args>
+  auto to(Args&& ... args) const & {
+    return E{}(*this, std::forward<Args>(args)...);
   }
 
   template <typename E, typename ... Args>
@@ -89,48 +95,63 @@ public:
   }
 };
 
-// template <typename Iter>
-// auto iter(const Iter& iter) {
-//   using value_type = typename decltype(std::declval<Iter>().begin())::value_type;
-//   return Iterable{ 
-//     [begin = iter.begin(), end = iter.end()]() mutable
-//       -> Optional<value_type>{
-//         if (begin != end) {
-//           IT_DEFER([&begin]() { ++begin; });
-//           return Optional<value_type>(*begin);
-//         }
-//         return nullopt;
-//       }
-//    };
-// }
-
 template <typename Iter>
-auto iter(Iter&& iter) {
-  using value_type = typename decltype(std::declval<Iter>().begin())::value_type*;
-  auto generator = [begin = iter.begin(), end = iter.end()]() mutable
-    -> Optional<value_type> {
+auto iter(const Iter& iter) {
+  using prev_iter = decltype(std::declval<Iter>().begin());
+  using value_type = typename prev_iter::value_type*;
+  struct DefaultGenerator {
+    prev_iter begin;
+    prev_iter end;
+    std::optional<value_type> operator()() {
       if (begin != end) {
-        IT_DEFER([&begin]() { ++begin; });
-        return Optional<value_type>(&*begin);
+        IT_DEFER([this]() { ++begin; });
+        return std::optional<value_type>(&*begin);
       }
-      return nullopt;
-    };
-  return Iterable<decltype(*std::declval<Iter>().begin()), decltype(generator)>{
-    std::move(generator)
+      return std::nullopt;
+    }
+  };
+  return Iterable<decltype(*std::declval<Iter>().begin()), DefaultGenerator>{
+    { iter.begin(), iter.end() }
   };
 }
 
-// template <typename Iter>
-// Iterable<Iter> iter(Iter&& begin, Iter&& end) {
-//   using value_type = typename decltype(begin)::value_type*;
-//   return Iterable{ 
-//     [begin = std::move(begin), end = std::move(end)]() mutable {
-//         if (begin != end) {
-//           IT_DEFER([&begin]() { ++begin; });
-//           return Optional<value_type>(&*begin);
-//         }
-//         return nullopt;
-//       }
-//    };
-// }
+template <typename Iter>
+auto iter(Iter&& iter) {
+  using prev_iter = decltype(std::declval<Iter>().begin());
+  using value_type = typename prev_iter::value_type*;
+  struct DefaultGenerator {
+    prev_iter begin;
+    prev_iter end;
+    std::optional<value_type> operator()() {
+      if (begin != end) {
+        IT_DEFER([this]() { ++begin; });
+        return std::optional<value_type>(&*begin);
+      }
+      return std::nullopt;
+    }
+  };
+  return Iterable<decltype(*std::declval<Iter>().begin()), DefaultGenerator>{
+    { iter.begin(), iter.end() }
+  };
+}
+
+template <typename Iter>
+auto iter(Iter&& begin, Iter&& end) {
+  using prev_iter = decltype(std::declval<Iter>().begin());
+  using value_type = typename prev_iter::value_type*;
+  struct DefaultGenerator {
+    prev_iter begin;
+    prev_iter end;
+    std::optional<value_type> operator()() {
+      if (begin != end) {
+        IT_DEFER([this]() { ++begin; });
+        return std::optional<value_type>(&*begin);
+      }
+      return std::nullopt;
+    }
+  };
+  return Iterable<decltype(*std::declval<Iter>().begin()), DefaultGenerator>{
+    { begin, end }
+  };
+}
 }  // namespace itertools
