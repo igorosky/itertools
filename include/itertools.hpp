@@ -113,19 +113,29 @@ public:
 template <typename Iter>
 auto iter(const Iter& iter) {
   using prev_iter = decltype(std::declval<Iter>().begin());
-  using value_type = typename prev_iter::value_type*;
+  using prev_value_type = decltype(*std::declval<prev_iter>());
+  constexpr static bool is_lvalue_ref = std::is_lvalue_reference_v<prev_value_type>;
+  using value_type = std::conditional_t<
+      is_lvalue_ref,
+      std::add_pointer_t<std::remove_reference_t<prev_value_type>>,
+      std::remove_reference_t<prev_value_type>
+    >;
   struct DefaultGenerator {
     prev_iter begin;
     prev_iter end;
     std::optional<value_type> operator()() {
       if (begin != end) {
         IT_DEFER([this]() { ++begin; });
-        return std::optional<value_type>(&*begin);
+        if constexpr (is_lvalue_ref) {
+          return std::optional<value_type>(&*begin);
+        } else {
+          return std::optional<value_type>(*begin);
+        }
       }
       return std::nullopt;
     }
   };
-  return Iterable<decltype(*std::declval<Iter>().begin()), DefaultGenerator>{
+  return Iterable<prev_value_type, DefaultGenerator>{
     { iter.begin(), iter.end() }
   };
 }
@@ -133,40 +143,60 @@ auto iter(const Iter& iter) {
 template <typename Iter>
 auto iter(Iter&& iter) {
   using prev_iter = decltype(std::declval<Iter>().begin());
-  using value_type = typename prev_iter::value_type*;
+  using prev_value_type = decltype(*std::declval<prev_iter>());
+  constexpr static bool is_lvalue_ref = std::is_lvalue_reference_v<prev_value_type>;
+  using value_type = std::conditional_t<
+      is_lvalue_ref,
+      std::add_pointer_t<std::remove_reference_t<prev_value_type>>,
+      std::remove_reference_t<prev_value_type>
+    >;
   struct DefaultGenerator {
     prev_iter begin;
     prev_iter end;
     std::optional<value_type> operator()() {
       if (begin != end) {
         IT_DEFER([this]() { ++begin; });
-        return std::optional<value_type>(&*begin);
+        if constexpr (is_lvalue_ref) {
+          return std::optional<value_type>(&*begin);
+        } else {
+          return std::optional<value_type>(*begin);
+        }
       }
       return std::nullopt;
     }
   };
-  return Iterable<decltype(*std::declval<Iter>().begin()), DefaultGenerator>{
+  return Iterable<prev_value_type, DefaultGenerator>{
     { iter.begin(), iter.end() }
   };
 }
 
 template <typename Iter>
-auto iter(Iter&& begin, Iter&& end) {
-  using prev_iter = decltype(std::declval<Iter>().begin());
-  using value_type = typename prev_iter::value_type*;
+auto iter(Iter begin, Iter end) {
+  using prev_iter = decltype(begin);
+  using prev_value_type = decltype(*std::declval<prev_iter>());
+  constexpr static bool is_lvalue_ref = std::is_lvalue_reference_v<prev_value_type>;
+  using value_type = std::conditional_t<
+      is_lvalue_ref,
+      std::add_pointer_t<std::remove_reference_t<prev_value_type>>,
+      std::remove_reference_t<prev_value_type>
+    >;
   struct DefaultGenerator {
     prev_iter begin;
     prev_iter end;
     std::optional<value_type> operator()() {
       if (begin != end) {
         IT_DEFER([this]() { ++begin; });
-        return std::optional<value_type>(&*begin);
+        if constexpr (is_lvalue_ref) {
+          return std::optional<value_type>(&*begin);
+        } else {
+          return std::optional<value_type>(*begin);
+        }
       }
       return std::nullopt;
     }
   };
-  return Iterable<decltype(*std::declval<Iter>().begin()), DefaultGenerator>{
-    { begin, end }
+  return Iterable<prev_value_type, DefaultGenerator>{
+    { std::move(begin), std::move(end) }
   };
 }
 }  // namespace itertools

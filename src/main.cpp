@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unordered_set>
 #include <vector>
 #include "itertools.hpp"
 
@@ -20,8 +21,9 @@ struct Sum {
   template <typename T, typename Iter>
   auto operator()(itertools::Iterable<T, Iter> iter) const {
     std::remove_reference_t<typename itertools::Iterable<T, Iter>::Iterator::value_type> total = 0;
-    for (const auto& x : iter) {
-      total += x;
+    auto it = iter.begin();
+    while (auto val = it.next()) {
+      total += it.get_val(std::move(val));
     }
     return total;
   }
@@ -117,6 +119,33 @@ struct Zip {
   }
 };
 
+struct Unique {
+  template <typename T, typename Iter>
+  auto operator()(itertools::Iterable<T, Iter> iter) const {
+    using iter_type = decltype(iter.begin());
+
+    struct Uniquifier {
+      iter_type iter;
+      std::unordered_set<std::remove_reference_t<T>> seen_values;
+
+      auto operator()() {
+        auto next_val = iter.next();
+        while (next_val.has_value()) {
+          auto val = iter.get_val(std::move(next_val));
+          if (seen_values.insert(val).second) {
+            return std::optional<T>{ val };
+          }
+          next_val = iter.next();
+        }
+        return std::optional<T>{ };
+      }
+    };
+    return itertools::Iterable<T, Uniquifier>{
+      { iter.begin(), { } }
+    };
+  }
+};
+
 int main() {
   std::vector<int> vec = {1, 2, 3, 4, 5};
   auto x = iter(vec).to<Sum>();
@@ -143,6 +172,7 @@ int main() {
   iter(vec)
     .to<Map>([](const auto& v) { return static_cast<double>(v) * 3.7; })
     .to<Filter>([](const auto& v) { return v > 10.0; })
+    .to<Unique>()
     .to<ForEach>([](const auto& v) { std::cout << "Value: " << v << '\n'; });
   for (auto [x, y] : iter(vec).to<Zip>(iter(collected))) {
     std::cout << "Pair: " << x << ", " << y << '\n';
