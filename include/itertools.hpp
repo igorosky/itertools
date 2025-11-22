@@ -13,16 +13,19 @@ struct DefaultEvaluator {
   }
 };
 
-template <typename Iter, typename CRTP = void>
+template <typename Generator>
 class Iterable {
 public:
-  using value_type = typename Iter::value_type;
-
-  template<typename Generator>
   class Iterator {
-    friend class Iterable<Iter>;
+  public:
+    using value_type = typename decltype(std::declval<Generator>()())::value_type;
+
+  private:
+    friend class Iterable<Generator>;
+
     Optional<value_type> _value;
     Optional<Generator> _generator;
+
 
     Iterator() { }
 
@@ -49,58 +52,72 @@ public:
       return Optional<value_type>(std::move(_value));
     }
   };
-protected:
-  Iterable() = default;
 
 private:
-  Iter _begin;
-  Iter _end;
+  Iterator _begin;
+  Iterator _end;
 
-  auto get_generator_or_def() {
-    if constexpr (!std::is_same_v<CRTP, void>) {
-      return static_cast<CRTP*>(this)->get_generator();
-    } else {
-      return [begin = std::move(_begin), end = std::move(_end)]()
+public:
+  Iterable(Generator&& generator)
+    : _begin(std::move(generator)) { }
+
+  // Shall be called once
+  Iterator begin() {
+    return std::move(_begin);
+  }
+  // Shall be called once
+  Iterator end() const {
+    return std::move(_end);
+  }
+
+  template <typename E, typename ... Args>
+  auto to(Args&& ... args) && {
+    return E{}(std::move(*this), std::forward<Args>(args)...);
+  }
+};
+
+template <typename Iter>
+auto iter(const Iter& iter) {
+  using value_type = typename decltype(std::declval<std::decay_t<Iter>>().begin())::value_type;
+  return Iterable{ 
+    [begin = iter.begin(), end = iter.end()]()
           mutable -> Optional<value_type> {
         if (begin != end) {
           IT_DEFER([&begin]() { ++begin; });
           return Optional<value_type>(*begin);
         }
         return { };
-      };
-    }
-  }
-
-public:
-  Iterable(Iter&& begin, Iter&& end)
-      : _begin(std::move(begin)), _end(std::move(end)) { }
-
-  // Shall be called once
-  Iterator<decltype(std::declval<Iterable<Iter, CRTP>>().get_generator_or_def())> begin() {
-    return { get_generator_or_def() };
-  }
-  Iterator<decltype(std::declval<Iterable<Iter, CRTP>>().get_generator_or_def())> end() const {
-    return { };
-  }
-
-  template <typename E, typename ... Args>
-  auto to(Args&& ... args) {
-    return E{}(*this, std::forward<Args>(args)...);
-  }
-};
-
-template <typename Iter>
-Iterable<decltype(std::declval<Iter>().begin())> iter(const Iter& iter) {
-  return { iter.begin(), iter.end() };
+      }
+   };
 }
 
 template <typename Iter>
-Iterable<decltype(std::declval<Iter>().begin())> iter(Iter&& iter) {
-  return { iter.begin(), iter.end() };
+auto iter(Iter&& iter) {
+  using value_type = typename decltype(std::declval<std::decay_t<Iter>>().begin())::value_type;
+  return Iterable{ 
+    [begin = iter.begin(), end = iter.end()]()
+          mutable -> Optional<value_type> {
+        if (begin != end) {
+          IT_DEFER([&begin]() { ++begin; });
+          return Optional<value_type>(*begin);
+        }
+        return { };
+      }
+   };
 }
 
 template <typename Iter>
 Iterable<Iter> iter(Iter&& begin, Iter&& end) {
-  return { std::forward<Iter>(begin), std::forward<Iter>(end) };
+  using value_type = typename decltype(begin)::value_type;
+  return Iterable{ 
+    [begin = std::move(begin), end = std::move(end)]()
+          mutable -> Optional<value_type> {
+        if (begin != end) {
+          IT_DEFER([&begin]() { ++begin; });
+          return Optional<value_type>(*begin);
+        }
+        return { };
+      }
+   };
 }
 }  // namespace itertools
