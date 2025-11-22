@@ -84,7 +84,7 @@ public:
 
     Iterator() { }
 
-    Iterator(Generator&& generator)
+    explicit Iterator(Generator&& generator)
     : _value(generator()),
       _generator(std::move(generator)) { }
 
@@ -114,7 +114,7 @@ public:
           ++(*this);
         }
       }));
-      return std::optional<stored_type>(std::move(_value));
+      return std::move(_value);
     }
     static value_type get_val(std::optional<stored_type>&& opt) {
       if constexpr (std::is_lvalue_reference_v<T>) {
@@ -130,7 +130,7 @@ private:
   Iterator _end;
 
 public:
-  Iterable(Generator&& generator)
+  explicit Iterable(Generator&& generator)
     : _begin(std::move(generator)) { }
 
   Iterator begin() {
