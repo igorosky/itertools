@@ -4,6 +4,18 @@
 
 using itertools::iter;
 
+struct Count {
+  template <typename T, typename Iter>
+  auto operator()(itertools::Iterable<T, Iter> iter) const {
+    size_t count = 0;
+    auto it = iter.begin();
+    while (it.next().has_value()) {
+      ++count;
+    }
+    return count;
+  }
+};
+
 struct Sum {
   template <typename T, typename Iter>
   auto operator()(itertools::Iterable<T, Iter> iter) const {
@@ -49,14 +61,7 @@ struct Filter {
 
       auto operator()() {
         auto next_val = iter.next();
-        auto get_val = [](std::optional<typename itertools::Iterable<T, Iter>::Iterator::stored_type>&& opt) {
-          if constexpr (std::is_lvalue_reference_v<T>) {
-            return *opt.value();
-          } else {
-            return std::move(opt).value();
-          }
-        };
-        while (next_val.has_value() && !func(get_val(std::move(next_val)))) {
+        while (next_val.has_value() && !func(iter.get_val(std::move(next_val)))) {
           next_val = iter.next();
         }
         return next_val;
@@ -73,6 +78,42 @@ struct Collect {
   template <typename T, typename Iter>
   auto operator()(itertools::Iterable<T, Iter> iter) const {
     return Target(iter.begin(), iter.end());
+  }
+};
+
+struct ForEach {
+  template <typename T, typename Iter, typename Func>
+  void operator()(itertools::Iterable<T, Iter> iter, Func&& func) const {
+    auto it = iter.begin();
+    while (auto val = it.next()) {
+      func(it.get_val(std::move(val)));
+    }
+  }
+};
+
+struct Zip {
+  template <typename T, typename Iter, typename Y, typename OtherIter>
+  auto operator()(itertools::Iterable<T, Iter> iter, itertools::Iterable<Y, OtherIter> other) const {
+    using iter_type = decltype(iter.begin());
+    using other_type = decltype(other.begin());
+    using pair_type = std::pair<decltype(*std::declval<iter_type>()), decltype(*std::declval<other_type>())>;
+    struct Zipper {
+      iter_type iter1;
+      other_type iter2;
+      auto operator()() {
+        auto val1 = iter1.next();
+        auto val2 = iter2.next();
+        if (val1.has_value() && val2.has_value()) {
+          return std::optional<pair_type>{
+            { iter1.get_val(std::move(val1)), iter2.get_val(std::move(val2)) }
+          };
+        }
+        return std::optional<pair_type>{ };
+      }
+    };
+    return itertools::Iterable<pair_type, Zipper>{
+      { iter.begin(), other.begin() }
+    };
   }
 };
 
@@ -97,6 +138,14 @@ int main() {
   auto collected = iter(vec).to<Collect<std::vector<int>>>();
   for (auto x : collected) {
     std::cout << x << '\n';
+  }
+  std::cout << "Count: " << iter(vec).to<Count>() << '\n';
+  iter(vec)
+    .to<Map>([](const auto& v) { return static_cast<double>(v) * 3.7; })
+    .to<Filter>([](const auto& v) { return v > 10.0; })
+    .to<ForEach>([](const auto& v) { std::cout << "Value: " << v << '\n'; });
+  for (auto [x, y] : iter(vec).to<Zip>(iter(collected))) {
+    std::cout << "Pair: " << x << ", " << y << '\n';
   }
   return 0;
 }

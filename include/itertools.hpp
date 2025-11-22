@@ -10,6 +10,7 @@ template <typename T, typename Generator>
 class Iterable {
 public:
   class Iterator {
+    struct Empty { };
   public:
     using stored_type = std::conditional_t<
       std::is_lvalue_reference_v<T>,
@@ -18,7 +19,14 @@ public:
     >;
 
     using value_type = T;
-    struct iterator_category : public std::input_iterator_tag, std::output_iterator_tag { };
+    struct iterator_category : public
+      std::input_iterator_tag,
+      std::conditional_t<
+        !std::is_const_v<T> && std::is_lvalue_reference_v<T>,
+        std::output_iterator_tag,
+        Empty
+      >
+    { };
     using difference_type = std::ptrdiff_t;
     using pointer = std::add_pointer_t<std::remove_reference_t<value_type>>;
     using reference = std::add_lvalue_reference_t<value_type>;
@@ -66,6 +74,13 @@ public:
         }
       }));
       return std::optional<stored_type>(std::move(_value));
+    }
+    static value_type get_val(std::optional<stored_type>&& opt) {
+      if constexpr (std::is_lvalue_reference_v<T>) {
+        return *opt.value();
+      } else {
+        return std::move(opt).value();
+      }
     }
   };
 
