@@ -5,10 +5,10 @@
 using itertools::iter;
 
 struct Sum {
-  template <typename Iter>
-  int operator()(itertools::Iterable<Iter>&& iter) const {
-    typename itertools::Iterable<Iter>::Iterator::value_type total = 0;
-    for (auto x : iter) {
+  template <typename T, typename Iter>
+  int operator()(itertools::Iterable<T, Iter>&& iter) const {
+    std::remove_reference_t<typename itertools::Iterable<T, Iter>::Iterator::value_type> total = 0;
+    for (const auto& x : iter) {
       total += x;
     }
     return total;
@@ -16,16 +16,17 @@ struct Sum {
 };
 
 struct Map {
-  template <typename Iter, typename Func>
-  auto operator()(itertools::Iterable<Iter>&& iter, Func&& func) const {
-    return itertools::Iterable{
-      [iter = std::move(iter.begin()), func = std::move(func)]() mutable {
+  template <typename T, typename Iter, typename Func>
+  auto operator()(itertools::Iterable<T, Iter>&& iter, Func&& func) const {
+    auto f = [iter = std::move(iter.begin()), func = std::move(func)]() mutable {
         auto next_val = iter.next();
         if (next_val.has_value()) {
-          return itertools::Optional{ func(next_val.value()) };
+          return itertools::Optional{ func(*next_val.value()) };
         }
-        return itertools::Optional<typename std::invoke_result_t<Func, typename itertools::Iterable<Iter>::Iterator::value_type>>{ };
-      }
+        return itertools::Optional<typename std::invoke_result_t<Func, std::remove_pointer_t<typename itertools::Iterable<T, Iter>::Iterator::value_type>>>{ };
+      };
+    return itertools::Iterable<typename std::invoke_result_t<decltype(f)>::value_type, decltype(f)>{
+      std::move(f)
     };
   }
 };
@@ -42,5 +43,11 @@ int main() {
       .to<Map>([](int v) { return v * v; })
       .to<Sum>()
     << '\n';
+  for (auto& x : iter(vec)) {
+    x += 1;
+  }
+  for (auto x : vec) {
+    std::cout << x << '\n';
+  }
   return 0;
 }

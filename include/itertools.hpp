@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include "defer.hpp"
@@ -13,17 +14,25 @@ struct DefaultEvaluator {
   }
 };
 
-template <typename Generator>
+template <typename T, typename Generator>
 class Iterable {
+  using type = std::conditional_t<
+    std::is_lvalue_reference_v<T>,
+    std::remove_reference_t<T>*,
+    std::remove_reference_t<T>
+  >;
+  static_assert(std::is_invocable_r_v<Optional<type>, Generator>,
+    "Generator must be callable and return Optional<T>");
+
 public:
   class Iterator {
   public:
-    using value_type = typename decltype(std::declval<Generator>()())::value_type;
+    using value_type = T;
 
   private:
-    friend class Iterable<Generator>;
+    friend class Iterable<T, Generator>;
 
-    Optional<value_type> _value;
+    Optional<type> _value;
     Optional<Generator> _generator;
 
 
@@ -38,18 +47,22 @@ public:
       _value = _generator.value()();
     }
     value_type operator*() {
-      return std::move(_value).value();
+      if constexpr (std::is_lvalue_reference_v<T>) {
+        return *(_value.value());
+      } else {
+        return std::move(_value).value();
+      }
     }
     bool operator!=(const Iterator& other) const {
       return _value.has_value() != other._value.has_value();
     }
-    Optional<value_type> next() {
+    Optional<type> next() {
       IT_DEFER(([this, not_last = _value.has_value()]() {
         if (not_last) {
           ++(*this);
         }
       }));
-      return Optional<value_type>(std::move(_value));
+      return Optional<type>(std::move(_value));
     }
   };
 
@@ -76,48 +89,48 @@ public:
   }
 };
 
-template <typename Iter>
-auto iter(const Iter& iter) {
-  using value_type = typename decltype(std::declval<std::decay_t<Iter>>().begin())::value_type;
-  return Iterable{ 
-    [begin = iter.begin(), end = iter.end()]()
-          mutable -> Optional<value_type> {
-        if (begin != end) {
-          IT_DEFER([&begin]() { ++begin; });
-          return Optional<value_type>(*begin);
-        }
-        return { };
-      }
-   };
-}
+// template <typename Iter>
+// auto iter(const Iter& iter) {
+//   using value_type = typename decltype(std::declval<Iter>().begin())::value_type;
+//   return Iterable{ 
+//     [begin = iter.begin(), end = iter.end()]() mutable
+//       -> Optional<value_type>{
+//         if (begin != end) {
+//           IT_DEFER([&begin]() { ++begin; });
+//           return Optional<value_type>(*begin);
+//         }
+//         return nullopt;
+//       }
+//    };
+// }
 
 template <typename Iter>
 auto iter(Iter&& iter) {
-  using value_type = typename decltype(std::declval<std::decay_t<Iter>>().begin())::value_type;
-  return Iterable{ 
-    [begin = iter.begin(), end = iter.end()]()
-          mutable -> Optional<value_type> {
-        if (begin != end) {
-          IT_DEFER([&begin]() { ++begin; });
-          return Optional<value_type>(*begin);
-        }
-        return { };
+  using value_type = typename decltype(std::declval<Iter>().begin())::value_type*;
+  auto generator = [begin = iter.begin(), end = iter.end()]() mutable
+    -> Optional<value_type> {
+      if (begin != end) {
+        IT_DEFER([&begin]() { ++begin; });
+        return Optional<value_type>(&*begin);
       }
-   };
+      return nullopt;
+    };
+  return Iterable<decltype(*std::declval<Iter>().begin()), decltype(generator)>{
+    std::move(generator)
+  };
 }
 
-template <typename Iter>
-Iterable<Iter> iter(Iter&& begin, Iter&& end) {
-  using value_type = typename decltype(begin)::value_type;
-  return Iterable{ 
-    [begin = std::move(begin), end = std::move(end)]()
-          mutable -> Optional<value_type> {
-        if (begin != end) {
-          IT_DEFER([&begin]() { ++begin; });
-          return Optional<value_type>(*begin);
-        }
-        return { };
-      }
-   };
-}
+// template <typename Iter>
+// Iterable<Iter> iter(Iter&& begin, Iter&& end) {
+//   using value_type = typename decltype(begin)::value_type*;
+//   return Iterable{ 
+//     [begin = std::move(begin), end = std::move(end)]() mutable {
+//         if (begin != end) {
+//           IT_DEFER([&begin]() { ++begin; });
+//           return Optional<value_type>(&*begin);
+//         }
+//         return nullopt;
+//       }
+//    };
+// }
 }  // namespace itertools
