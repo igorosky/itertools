@@ -21,7 +21,7 @@ int main() {
   }
   std::cout << 
     iter(vec)
-      .to<Map>([](int v) { return v * v; })
+      .to<Map>([](const int& v) { return v * v; })
       .to<Sum>()
     << '\n';
   for (auto& x : iter(vec).to<Filter>([](const int& v) { return v % 2 == 1; })) {
@@ -30,7 +30,9 @@ int main() {
   for (auto x : vec) {
     std::cout << x << '\n';
   }
-  auto collected = iter(vec).to<Collect<std::vector<int>>>();
+  auto collected = iter(vec)
+    .to<Map>([](int x) { return x * 10; })
+    .to<Collect<std::vector<int>>>();
   for (auto x : collected) {
     std::cout << x << '\n';
   }
@@ -42,6 +44,9 @@ int main() {
     .to<ForEach>([](const auto& v) { std::cout << "Value: " << v << '\n'; });
   for (auto [x, y] : iter(vec).to<Zip>(iter(collected))) {
     std::cout << "Pair: " << x << ", " << y << '\n';
+  }
+  for (decltype(auto) x : iter(vec).to<Map>([](auto v) { return v; })) {
+    std::cout << "Direct iter: " << x << '\n';
   }
   return 0;
 }

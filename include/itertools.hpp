@@ -59,7 +59,11 @@ public:
       std::remove_reference_t<T>
     >;
 
-    using value_type = T;
+    using value_type = std::conditional_t<
+      std::is_reference_v<T>,
+      T,
+      std::add_lvalue_reference_t<T>
+    >;
     struct iterator_category : public
       std::input_iterator_tag,
       std::conditional_t<
@@ -82,7 +86,7 @@ public:
     std::optional<Generator> _generator;
 
 
-    Iterator() { }
+    Iterator() = default;
 
     explicit Iterator(Generator&& generator)
     : _value(generator()),
@@ -90,11 +94,13 @@ public:
 
   public:
     Iterator& operator++() {
+      _value.reset();
       _value = _generator.value()();
       return *this;
     }
     Iterator operator++(int) {
       auto temp = *this;
+      _value.reset();
       _value = _generator.value()();;
       return temp;
     }
@@ -102,7 +108,14 @@ public:
       if constexpr (std::is_lvalue_reference_v<T>) {
         return *(_value.value());
       } else {
-        return std::move(_value).value();
+        return _value.value();
+      }
+    }
+    const value_type operator*() const {
+      if constexpr (std::is_lvalue_reference_v<T>) {
+        return *(_value.value());
+      } else {
+        return _value.value();
       }
     }
     bool operator!=(const Iterator& other) const {
@@ -116,11 +129,11 @@ public:
       }));
       return std::move(_value);
     }
-    static value_type get_val(std::optional<stored_type>&& opt) {
+    static inline value_type get_val(std::optional<stored_type>& opt) {
       if constexpr (std::is_lvalue_reference_v<T>) {
         return *opt.value();
       } else {
-        return std::move(opt).value();
+        return opt.value();
       }
     }
   };
@@ -133,11 +146,17 @@ public:
   explicit Iterable(Generator&& generator)
     : _begin(std::move(generator)) { }
 
-  Iterator begin() {
+  Iterator begin() const & {
     return _begin;
   }
-  Iterator end() const {
+  Iterator begin() && {
+    return std::move(_begin);
+  }
+  Iterator end() const & {
     return _end;
+  }
+  Iterator end() && {
+    return std::move(_end);
   }
 
   template <typename E, typename ... Args>
@@ -163,7 +182,7 @@ auto iter(const Iter& iter) {
   using value_type = std::conditional_t<
       is_lvalue_ref,
       std::add_pointer_t<std::remove_reference_t<prev_value_type>>,
-      std::remove_reference_t<prev_value_type>
+      prev_value_type
     >;
   struct DefaultGenerator {
     prev_iter begin;
@@ -193,7 +212,7 @@ auto iter(Iter&& iter) {
   using value_type = std::conditional_t<
       is_lvalue_ref,
       std::add_pointer_t<std::remove_reference_t<prev_value_type>>,
-      std::remove_reference_t<prev_value_type>
+      prev_value_type
     >;
   struct DefaultGenerator {
     prev_iter begin;
@@ -267,7 +286,7 @@ struct Sum {
     std::remove_reference_t<typename itertools::Iterable<T, Iter>::Iterator::value_type> total = 0;
     auto it = iter.begin();
     while (auto val = it.next()) {
-      total += it.get_val(std::move(val));
+      total += it.get_val(val);
     }
     return total;
   }
@@ -287,9 +306,9 @@ struct Map {
       auto operator()() {
         auto next_val = iter.next();
         if (next_val.has_value()) {
-          return std::optional{ func(*next_val.value()) };
+          return std::optional{ func(iter.get_val(next_val)) };
         }
-        return std::optional<typename std::invoke_result_t<Func, std::remove_pointer_t<typename itertools::Iterable<T, Iter>::Iterator::value_type>>>{ };
+        return std::optional<decltype(func(iter.get_val(next_val)))>{ };
       }
     };
     return itertools::Iterable<typename std::invoke_result_t<Mapper>::value_type, Mapper>{
@@ -307,14 +326,14 @@ struct Filter {
 
       auto operator()() {
         auto next_val = iter.next();
-        while (next_val.has_value() && !func(iter.get_val(std::move(next_val)))) {
+        while (next_val.has_value() && !func(iter.get_val(next_val))) {
           next_val = iter.next();
         }
         return next_val;
       }
     };
     return itertools::Iterable<T, Filterer>{
-      { std::move(it.begin()), std::move(func) }
+      { it.begin(), std::move(func) }
     };
   }
 };
@@ -332,7 +351,7 @@ struct ForEach {
   void operator()(itertools::Iterable<T, Iter> iter, Func&& func) const {
     auto it = iter.begin();
     while (auto val = it.next()) {
-      func(it.get_val(std::move(val)));
+      func(it.get_val(val));
     }
   }
 };
@@ -342,23 +361,24 @@ struct Zip {
   auto operator()(itertools::Iterable<T, Iter> iter, itertools::Iterable<Y, OtherIter> other) const {
     using iter_type = decltype(iter.begin());
     using other_type = decltype(other.begin());
-    using pair_type = std::pair<decltype(*std::declval<iter_type>()), decltype(*std::declval<other_type>())>;
+    using pair_type = std::pair<typename iter_type::value_type, typename other_type::value_type>;
     struct Zipper {
       iter_type iter1;
+      iter_type iter15;
       other_type iter2;
       auto operator()() {
         auto val1 = iter1.next();
         auto val2 = iter2.next();
         if (val1.has_value() && val2.has_value()) {
           return std::optional<pair_type>{
-            { iter1.get_val(std::move(val1)), iter2.get_val(std::move(val2)) }
+            { iter1.get_val(val1), iter2.get_val(val2) }
           };
         }
         return std::optional<pair_type>{ };
       }
     };
     return itertools::Iterable<pair_type, Zipper>{
-      { iter.begin(), other.begin() }
+      { iter.begin(), iter.begin(), other.begin() }
     };
   }
 };
@@ -375,7 +395,7 @@ struct Unique {
       auto operator()() {
         auto next_val = iter.next();
         while (next_val.has_value()) {
-          auto val = iter.get_val(std::move(next_val));
+          auto val = iter.get_val(next_val);
           if (seen_values.insert(val).second) {
             return std::optional<T>{ val };
           }

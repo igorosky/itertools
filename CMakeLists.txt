@@ -4,7 +4,7 @@ project(itertools CXX)
 
 find_package(benchmark REQUIRED)
 
-add_compile_options(--std=c++17 -Wall -Wextra -Werror -Wconversion -Wsign-conversion)
+add_compile_options(--std=c++17 -Wall -Wextra -Werror -Wconversion -Wsign-conversion -g)
 
 include_directories(include/)
 
