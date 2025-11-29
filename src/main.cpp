@@ -3,14 +3,18 @@
 #include "itertools.hpp"
 
 using itertools::iter;
-using itertools::Count;
-using itertools::Sum;
-using itertools::Map;
-using itertools::Filter;
-using itertools::Unique;
-using itertools::ForEach;
-using itertools::Zip;
-using itertools::Collect;
+using itertools::range;
+using itertools::rangeInf;
+using itertools::transformations::Count;
+using itertools::transformations::Sum;
+using itertools::transformations::Map;
+using itertools::transformations::Filter;
+using itertools::transformations::Unique;
+using itertools::transformations::ForEach;
+using itertools::transformations::Zip;
+using itertools::transformations::Collect;
+using itertools::transformations::Chain;
+using itertools::transformations::FirstN;
 
 int main() {
   std::vector<int> vec = {1, 2, 3, 4, 5};
@@ -47,6 +51,15 @@ int main() {
   }
   for (decltype(auto) x : iter(vec).to<Map>([](auto v) { return v; })) {
     std::cout << "Direct iter: " << x << '\n';
+  }
+  for (auto& x : iter(vec).to<Chain>(iter(collected))) {
+    std::cout << "Chained: " << x << '\n';
+  }
+  for (auto& x : iter(vec).to<FirstN>(3ul)) {
+    std::cout << "First N: " << x << '\n';
+  }
+  for (auto& x : rangeInf(0, 2).to<FirstN>(5ul)) {
+    std::cout << "RangeInf: " << x << '\n';
   }
   return 0;
 }
