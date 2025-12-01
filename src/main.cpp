@@ -15,6 +15,7 @@ using itertools::transformations::Zip;
 using itertools::transformations::Collect;
 using itertools::transformations::Chain;
 using itertools::transformations::FirstN;
+using itertools::transformations::Dedup;
 
 int main() {
   std::vector<int> vec = {1, 2, 3, 4, 5};
@@ -60,6 +61,9 @@ int main() {
   }
   for (auto& x : rangeInf(0, 2).to<FirstN>(5ul)) {
     std::cout << "RangeInf: " << x << '\n';
+  }
+  for (auto& x : iter({1,2,2,3,3,3,2,2,2,4,1,1,1,4,4,5,5}).to<Dedup>()) {
+    std::cout << "Dedup: " << x << '\n';
   }
   return 0;
 }

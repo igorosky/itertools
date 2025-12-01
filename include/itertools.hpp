@@ -1,5 +1,6 @@
 #pragma once
 
+#include <initializer_list>
 #include <optional>
 #include <type_traits>
 #include <unordered_set>
@@ -198,6 +199,19 @@ struct FromIter {
     return std::nullopt;
   }
 };
+template <typename T>
+struct FromIter<std::initializer_list<T>> {
+  constexpr static bool is_lvalue_ref = std::is_lvalue_reference_v<T>;
+  using value_type = const T*;
+  const T* begin;
+  const T* const end;
+  std::optional<value_type> operator()() {
+    if (begin != end) {
+      return std::optional<value_type>(begin++);
+    }
+    return std::nullopt;
+  }
+};
 
 template <typename T>
 struct RangeInf {
@@ -274,6 +288,22 @@ auto iter(Iter&& begin, Iter&& end) noexcept(noexcept(std::move(begin)) && noexc
   using prev_value_type = decltype(*std::declval<prev_iter>());
   return Iterable<prev_value_type, generators::FromIter<Iter>>{
     { std::move(begin), std::move(end) }
+  };
+}
+
+template <typename T>
+auto iter(std::initializer_list<T> iter) noexcept(
+                  std::is_nothrow_constructible_v<
+                    generators::FromIter<std::initializer_list<T>>,
+                    decltype(iter.begin()),
+                    decltype(iter.end())
+                  > &&
+                  std::is_nothrow_constructible_v<
+                    Iterable<const T&, generators::FromIter<std::initializer_list<T>>>,
+                    generators::FromIter<std::initializer_list<T>>
+                  >) {
+  return Iterable<const T&, generators::FromIter<std::initializer_list<T>>>{
+    { iter.begin(), iter.end() }
   };
 }
 
@@ -489,13 +519,89 @@ struct FirstN {
   }
 };
 
+template <bool is_eager = true>
+struct SkipN {
+  template <typename T, typename Iter>
+  auto operator()(Iterable<T, Iter> iter, size_t n) const {
+    using iter_type = decltype(iter.begin());
+
+    struct Skipper {
+      iter_type iter;
+      size_t remaining;
+
+      auto operator()() {
+        if constexpr (!is_eager) {
+          while (remaining-- > 0) {
+            ++iter;
+          }
+        }
+        return iter.next();
+      }
+    };
+    if constexpr (is_eager) {
+      iter_type iter = iter.begin();
+      while (n-- > 0) {
+            ++iter;
+          }
+      return Iterable<T, Skipper>{
+        { std::move(iter), n }
+      };
+    } else {
+      return Iterable<T, Skipper>{
+        { iter.begin(), n }
+      };
+    }
+  }
+};
+
+struct Dedup {
+  template <typename T, typename Iter>
+  auto operator()(Iterable<T, Iter> iter) const {
+    using iter_type = decltype(iter.begin());
+    using stored_type = typename iter_type::stored_type;
+    static_assert(std::is_copy_constructible_v<stored_type>,
+      "Dedup transformation requires copy-constructible value type");
+    // static_assert(std::is_eq<T>,
+    //   "Dedup transformation requires equality-comparable value type");
+
+    struct Deduplicator {
+      iter_type iter;
+      std::optional<stored_type> last_value;
+
+      auto operator()() {
+        auto next_val = iter.next();
+        while (next_val.has_value()) {
+          if (!last_value.has_value()) {
+            last_value = next_val;
+            return next_val;
+          }
+          if constexpr (std::is_lvalue_reference_v<T>) {
+            if (*last_value.value() != *next_val.value()) {
+              last_value = next_val;
+              return next_val;
+            }
+          } else if (last_value != next_val) {
+            last_value = next_val;
+            return next_val;
+          }
+          next_val = iter.next();
+        }
+        return std::optional<stored_type>{ };
+      }
+    };
+
+    return Iterable<T, Deduplicator>{
+      { iter.begin(), std::nullopt }
+    };
+  }
+};
+
+
 // Placeholder for future transformations
-struct SkipN;
-struct LastN;
 struct SkipWhile;
 struct TakeWhile;
 struct SlidingWindow;
-struct Dedup;
+struct LastN;
 struct Reverse;
 struct Sorted;
 struct JumpEvery;
