@@ -232,11 +232,11 @@ struct RangeGenerator {
   T current;
   const T end;
   const T step;
-  std::optional<T> operator()() noexcept(noexcept(step >= end) && noexcept(current += step) &&
+  std::optional<T> operator()() noexcept(noexcept(current >= end) && noexcept(current += step) &&
                                 std::is_nothrow_copy_constructible_v<T> &&
                                 std::is_nothrow_constructible_v<std::optional<T>> &&
                                 std::is_nothrow_constructible_v<std::optional<T>, T>) {
-    if (step >= end) {
+    if (current >= end) {
       return std::optional<T>{ };
     }
     IT_DEFER([this]() noexcept(noexcept(current += step)) {

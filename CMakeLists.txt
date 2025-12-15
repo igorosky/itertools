@@ -4,12 +4,30 @@ project(itertools CXX)
 
 find_package(benchmark REQUIRED)
 
-add_compile_options(--std=c++17 -Wall -Wextra -Werror -Wconversion -Wsign-conversion -g)
+add_compile_options(--std=c++17 -Wall -Wextra -Werror
+  -Wconversion -Wsign-conversion
+)
 
-include_directories(include/)
+add_library(
+  itertools INTERFACE
+  include/itertools.hpp
+)
 
-add_executable(test src/main.cpp)
+add_executable(demo src/main.cpp)
 
-target_link_libraries(test)
+target_link_libraries(demo itertools)
 
-target_include_directories(test PRIVATE include)
+target_include_directories(demo PRIVATE include)
+
+if (TESTING)
+  enable_testing()
+  find_package(GTest REQUIRED)
+
+  add_executable(tests
+    tests/test_basic.cpp
+  )
+
+  target_link_libraries(tests PRIVATE itertools GTest::GTest GTest::Main)
+  target_include_directories(tests PRIVATE include)
+  add_test(NAME tests COMMAND tests)
+endif()
