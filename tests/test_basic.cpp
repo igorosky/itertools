@@ -74,3 +74,50 @@ TEST(BasicTest, MapTransformation) {
     ++j;
   }
 }
+
+TEST(BasicTest, FilterTransformation) {
+  std::vector<int> vec = { 1, 2, 3, 4, 5, 6 };
+  std::vector<int> expected = { 2, 4, 6 };
+  size_t j = 0;
+  for (int i : itertools::iter(vec).to<itertools::transformations::Filter>(
+        [](int x) { return x % 2 == 0; })) {
+    EXPECT_EQ(i, expected[j]);
+    ++j;
+  }
+}
+
+TEST(BasicTest, CountTransformation) {
+  std::vector<int> vec = { 1, 2, 3, 4, 5 };
+  size_t count = itertools::iter(vec).to<itertools::transformations::Count>();
+  EXPECT_EQ(count, 5);
+}
+
+TEST(BasicTest, EmptyContainer) {
+  std::vector<int> vec;
+  size_t count = itertools::iter(vec).to<itertools::transformations::Count>();
+  EXPECT_EQ(count, 0);
+}
+
+TEST(BasicTest, SingleElement) {
+  std::vector<int> vec = { 42 };
+  int sum = itertools::iter(vec).to<itertools::transformations::Sum>();
+  EXPECT_EQ(sum, 42);
+}
+
+TEST(BasicTest, ForEachTransformation) {
+  std::vector<int> vec = { 1, 2, 3 };
+  int sum = 0;
+  itertools::iter(vec).to<itertools::transformations::ForEach>(
+    [&sum](int x) { sum += x; });
+  EXPECT_EQ(sum, 6);
+}
+
+TEST(BasicTest, CollectTransformation) {
+  std::vector<int> vec = { 3, 1, 4, 1, 5 };
+  auto collected = itertools::iter(vec)
+    .to<itertools::transformations::Collect<std::vector<int>>>();
+  ASSERT_EQ(collected.size(), 5);
+  EXPECT_EQ(collected[0], 3);
+  EXPECT_EQ(collected[1], 1);
+  EXPECT_EQ(collected[2], 4);
+}

@@ -60,11 +60,7 @@ public:
       std::remove_reference_t<T>
     >;
 
-    using value_type = std::conditional_t<
-      std::is_reference_v<T>,
-      T,
-      std::add_lvalue_reference_t<T>
-    >;
+    using value_type = T;
     struct iterator_category : public
       std::input_iterator_tag,
       std::conditional_t<
@@ -236,7 +232,7 @@ struct RangeGenerator {
                                 std::is_nothrow_copy_constructible_v<T> &&
                                 std::is_nothrow_constructible_v<std::optional<T>> &&
                                 std::is_nothrow_constructible_v<std::optional<T>, T>) {
-    if (current >= end) {
+    if ((current >= end && step > 0 ) || (current <= end && step < 0)) {
       return std::optional<T>{ };
     }
     IT_DEFER([this]() noexcept(noexcept(current += step)) {
@@ -256,9 +252,9 @@ auto iter(const Iter& iter) noexcept(noexcept(iter.begin()) && noexcept(iter.end
                                 decltype(*iter.begin()),
                                 generators::FromIter<Iter>>,
                                 generators::FromIter<Iter>>) {
-  using prev_iter = decltype(std::declval<Iter>().begin());
+  using prev_iter = decltype(std::declval<const Iter&>().begin());
   using prev_value_type = decltype(*std::declval<prev_iter>());
-  return Iterable<prev_value_type, generators::FromIter<Iter>>{
+  return Iterable<prev_value_type, generators::FromIter<const Iter&>>{
     { iter.begin(), iter.end() }
   };
 }
@@ -308,17 +304,19 @@ auto iter(std::initializer_list<T> iter) noexcept(
 }
 
 template <typename T>
-auto rangeInf(T&& start, T&& step = 1) noexcept(noexcept(Iterable<T, generators::RangeInf<T>>{{
+auto rangeInf(T&& start, T&& step = 1) noexcept(noexcept(Iterable<std::decay_t<T>, generators::RangeInf<std::decay_t<T>>>{{
     std::forward<T>(start), std::forward<T>(step) }})) {
-  return Iterable<T, generators::RangeInf<T>>{
+  using DecayedT = std::decay_t<T>;
+  return Iterable<DecayedT, generators::RangeInf<DecayedT>>{
     { std::forward<T>(start), std::forward<T>(step) }
   };
 }
 
 template <typename T>
-auto range(T&& start, T&& end, T&& step = 1) noexcept(noexcept(Iterable<T, generators::RangeGenerator<T>>{
+auto range(T&& start, T&& end, std::decay_t<T>&& step = 1) noexcept(noexcept(Iterable<std::decay_t<T>, generators::RangeGenerator<std::decay_t<T>>>{
     { std::forward<T>(start), std::forward<T>(end), std::forward<T>(step) }})) {
-  return Iterable<T, generators::RangeGenerator<T>>{
+  using DecayedT = std::decay_t<T>;
+  return Iterable<DecayedT, generators::RangeGenerator<DecayedT>>{
     { std::forward<T>(start), std::forward<T>(end), std::forward<T>(step) }
   };
 }
@@ -445,21 +443,24 @@ struct Unique {
   template <typename T, typename Iter>
   auto operator()(Iterable<T, Iter> iter) const {
     using iter_type = decltype(iter.begin());
+    using stored_type = typename iter_type::stored_type;
+    static_assert(std::is_copy_constructible_v<stored_type>,
+      "Unique transformation requires copy-constructible value type");
 
     struct Uniquifier {
       iter_type iter;
-      std::unordered_set<std::remove_reference_t<T>> seen_values;
+      std::unordered_set<std::decay_t<T>> seen_values;
 
       auto operator()() {
         auto next_val = iter.next();
         while (next_val.has_value()) {
           auto val = iter.get_val(next_val);
           if (seen_values.insert(val).second) {
-            return std::optional<T>{ val };
+            return next_val;
           }
           next_val = iter.next();
         }
-        return std::optional<T>{ };
+        return std::optional<stored_type>{ };
       }
     };
     return Iterable<T, Uniquifier>{
@@ -539,12 +540,12 @@ struct SkipN {
       }
     };
     if constexpr (is_eager) {
-      iter_type iter = iter.begin();
+      iter_type it = iter.begin();
       while (n-- > 0) {
-            ++iter;
+            ++it;
           }
       return Iterable<T, Skipper>{
-        { std::move(iter), n }
+        { std::move(it), n }
       };
     } else {
       return Iterable<T, Skipper>{

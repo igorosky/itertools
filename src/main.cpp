@@ -17,6 +17,31 @@ using itertools::transformations::Chain;
 using itertools::transformations::FirstN;
 using itertools::transformations::Dedup;
 
+int test() {
+  std::vector<int> vec = { 10, 20, 30 };
+  std::vector<std::pair<int, int>> expected = { {0, 10}, {1, 20}, {2, 30} };
+  
+  size_t j = 0;
+  for (auto [idx, val] : itertools::range(0, 10)
+      .to<itertools::transformations::Zip>(itertools::iter(vec))) {
+    if (idx != expected[j].first) {
+      std::cerr << "Index mismatch: got " << idx << ", expected " << expected[j].first << '\n';
+      return 1;
+    }
+    if (val != expected[j].second) {
+      std::cerr << "Value mismatch: got " << val << ", expected " << expected[j].second << '\n';
+      return 1;
+    }
+    ++j;
+  }
+  if (j != 3) {
+    std::cerr << "Iteration count mismatch: got " << j << ", expected 3\n";
+    return 1;
+  }
+  std::cout << "All tests passed.\n";
+  return 0;
+}
+
 int main() {
   std::vector<int> vec = {1, 2, 3, 4, 5};
   auto x = iter(vec).to<Sum>();
@@ -59,11 +84,11 @@ int main() {
   for (auto& x : iter(vec).to<FirstN>(3ul)) {
     std::cout << "First N: " << x << '\n';
   }
-  for (auto& x : rangeInf(0, 2).to<FirstN>(5ul)) {
+  for (auto x : rangeInf(0, 2).to<FirstN>(5ul)) {
     std::cout << "RangeInf: " << x << '\n';
   }
   for (auto& x : iter({1,2,2,3,3,3,2,2,2,4,1,1,1,4,4,5,5}).to<Dedup>()) {
     std::cout << "Dedup: " << x << '\n';
   }
-  return 0;
+  return test();
 }

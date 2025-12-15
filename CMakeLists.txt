@@ -25,6 +25,10 @@ if (TESTING)
 
   add_executable(tests
     tests/test_basic.cpp
+    tests/test_ranges.cpp
+    tests/test_transformations.cpp
+    tests/test_edge_cases.cpp
+    tests/test_chaining.cpp
   )
 
   target_link_libraries(tests PRIVATE itertools GTest::GTest GTest::Main)
