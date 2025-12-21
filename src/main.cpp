@@ -1,4 +1,6 @@
 #include <iostream>
+#include <list>
+#include <string>
 #include <vector>
 #include "itertools.hpp"
 
@@ -89,6 +91,10 @@ int main() {
   }
   for (auto& x : iter({1,2,2,3,3,3,2,2,2,4,1,1,1,4,4,5,5}).to<Dedup>()) {
     std::cout << "Dedup: " << x << '\n';
+  }
+  std::list<std::string> l{"hello", "world"};
+  for (const auto& x : iter(l)) {
+    std::cout << "From lvalue list: " << x << '\n';
   }
   return test();
 }
