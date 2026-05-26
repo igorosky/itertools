@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  # cpplint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install cpplint
+  #       run: pip install cpplint
+  #     - name: Run cpplint
+  #       run: cpplint --recursive src/ include/ tests/
+
+  # uncrustify:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install uncrustify
+  #       run: sudo apt-get install -y uncrustify
+  #     - name: Check formatting
+  #       run: |
+  #         find src include tests \( -name "*.cpp" -o -name "*.hpp" \) | \
+  #           xargs uncrustify -c uncrustify.cfg --check
+
+  gtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libgtest-dev libbenchmark-dev
+      - name: Configure
+        run: cmake -B build -DTESTING=ON
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
