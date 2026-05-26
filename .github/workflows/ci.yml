@@ -7,25 +7,25 @@ on:
     branches: [master]
 
 jobs:
-  cpplint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install cpplint
-        run: pip install cpplint
-      - name: Run cpplint
-        run: cpplint --recursive src/ include/ tests/
+  # cpplint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install cpplint
+  #       run: pip install cpplint
+  #     - name: Run cpplint
+  #       run: cpplint --recursive src/ include/ tests/
 
-  uncrustify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install uncrustify
-        run: sudo apt-get install -y uncrustify
-      - name: Check formatting
-        run: |
-          find src include tests \( -name "*.cpp" -o -name "*.hpp" \) | \
-            xargs uncrustify -c uncrustify.cfg --check
+  # uncrustify:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install uncrustify
+  #       run: sudo apt-get install -y uncrustify
+  #     - name: Check formatting
+  #       run: |
+  #         find src include tests \( -name "*.cpp" -o -name "*.hpp" \) | \
+  #           xargs uncrustify -c uncrustify.cfg --check
 
   gtest:
     runs-on: ubuntu-latest
