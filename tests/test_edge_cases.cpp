@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
-#include <itertools.hpp>
-#include <vector>
-#include <string>
+
 #include <list>
+#include <string>
+#include <vector>
+
+#include <itertools.hpp>
 
 // Edge cases with empty containers
 TEST(EdgeCasesTest, EmptyVectorIter) {
@@ -66,7 +68,7 @@ TEST(EdgeCasesTest, SingleElementAfterFilter) {
   int value = 0;
   size_t count = 0;
   for (int i : itertools::iter(vec)
-      .to<itertools::transformations::Filter>([](int x) { return x == 3; })) {
+    .to<itertools::transformations::Filter>([](int x) { return x == 3; })) {
     value = i;
     ++count;
   }
@@ -76,8 +78,8 @@ TEST(EdgeCasesTest, SingleElementAfterFilter) {
 
 // Large numbers edge cases
 TEST(EdgeCasesTest, LargeNumbers) {
-  std::vector<long long> vec = { 1000000000LL, 2000000000LL, 3000000000LL };
-  long long sum = itertools::iter(vec)
+  std::vector<uint64_t> vec = { 1000000000LL, 2000000000LL, 3000000000LL };
+  uint64_t sum = itertools::iter(vec)
     .to<itertools::transformations::Sum>();
   EXPECT_EQ(sum, 6000000000LL);
 }
@@ -94,7 +96,7 @@ TEST(EdgeCasesTest, ModifyThroughReferences) {
   for (int& i : itertools::iter(vec)) {
     i *= 2;
   }
-  
+
   std::vector<int> expected = { 2, 4, 6, 8, 10 };
   ASSERT_EQ(vec.size(), expected.size());
   for (size_t i = 0; i < vec.size(); ++i) {
@@ -114,7 +116,7 @@ TEST(EdgeCasesTest, ConstReferences) {
 // Initializer list edge cases
 TEST(EdgeCasesTest, InitializerListEmpty) {
   size_t count = 0;
-  for (int i : itertools::iter(std::initializer_list<int>{})) {
+  for (int i : itertools::iter(std::initializer_list<int>{ })) {
     (void)i;
     ++count;
   }
@@ -187,11 +189,11 @@ TEST(EdgeCasesTest, EmptyStrings) {
 TEST(EdgeCasesTest, StringMapping) {
   std::vector<std::string> vec = { "a", "bb", "ccc" };
   std::vector<size_t> expected = { 1, 2, 3 };
-  
+
   size_t j = 0;
   for (size_t len : itertools::iter(vec)
-      .to<itertools::transformations::Map>([](const std::string& s) { 
-        return s.length(); 
+    .to<itertools::transformations::Map>([](const std::string& s) {
+      return s.length();
       })) {
     EXPECT_EQ(len, expected[j]);
     ++j;
@@ -210,10 +212,10 @@ TEST(EdgeCasesTest, FloatingPointSum) {
 TEST(EdgeCasesTest, FloatingPointMap) {
   std::vector<double> vec = { 1.0, 2.0, 3.0 };
   std::vector<double> expected = { 2.0, 4.0, 6.0 };
-  
+
   size_t j = 0;
   for (double d : itertools::iter(vec)
-      .to<itertools::transformations::Map>([](double x) { return x * 2.0; })) {
+    .to<itertools::transformations::Map>([](double x) { return x * 2.0; })) {
     EXPECT_DOUBLE_EQ(d, expected[j]);
     ++j;
   }
@@ -231,10 +233,10 @@ TEST(EdgeCasesTest, AllZeros) {
 TEST(EdgeCasesTest, ZeroInFilter) {
   std::vector<int> vec = { 0, 1, 2, 0, 3, 0 };
   std::vector<int> expected = { 0, 0, 0 };
-  
+
   size_t j = 0;
   for (int i : itertools::iter(vec)
-      .to<itertools::transformations::Filter>([](int x) { return x == 0; })) {
+    .to<itertools::transformations::Filter>([](int x) { return x == 0; })) {
     EXPECT_EQ(i, expected[j]);
     ++j;
   }
@@ -246,7 +248,7 @@ TEST(EdgeCasesTest, FilterNoneMatch) {
   std::vector<int> vec = { 1, 3, 5, 7, 9 };
   size_t count = 0;
   for (int i : itertools::iter(vec)
-      .to<itertools::transformations::Filter>([](int x) { return x % 2 == 0; })) {
+    .to<itertools::transformations::Filter>([](int x) { return x % 2 == 0; })) {
     (void)i;
     ++count;
   }
@@ -257,7 +259,7 @@ TEST(EdgeCasesTest, FilterAllMatch) {
   std::vector<int> vec = { 2, 4, 6, 8 };
   size_t count = 0;
   for (int i : itertools::iter(vec)
-      .to<itertools::transformations::Filter>([](int x) { return x % 2 == 0; })) {
+    .to<itertools::transformations::Filter>([](int x) { return x % 2 == 0; })) {
     (void)i;
     ++count;
   }
@@ -305,7 +307,7 @@ TEST(EdgeCasesTest, UniqueWithMany) {
   for (int i = 0; i < 100; ++i) {
     vec.push_back(i % 10);
   }
-  
+
   size_t count = itertools::iter(vec)
     .to<itertools::transformations::Unique>()
     .to<itertools::transformations::Count>();
@@ -317,10 +319,10 @@ TEST(EdgeCasesTest, UniqueWithMany) {
 TEST(EdgeCasesTest, DedupPairPattern) {
   std::vector<int> vec = { 1, 1, 2, 2, 3, 3, 4, 4 };
   std::vector<int> expected = { 1, 2, 3, 4 };
-  
+
   size_t j = 0;
   for (int i : itertools::iter(vec)
-      .to<itertools::transformations::Dedup>()) {
+    .to<itertools::transformations::Dedup>()) {
     EXPECT_EQ(i, expected[j]);
     ++j;
   }
@@ -348,10 +350,10 @@ TEST(EdgeCasesTest, ChainWithSingle) {
   std::vector<int> vec1 = { 1 };
   std::vector<int> vec2 = { 2 };
   std::vector<int> expected = { 1, 2 };
-  
+
   size_t j = 0;
   for (int i : itertools::iter(vec1)
-      .to<itertools::transformations::Chain>(itertools::iter(vec2))) {
+    .to<itertools::transformations::Chain>(itertools::iter(vec2))) {
     EXPECT_EQ(i, expected[j]);
     ++j;
   }
@@ -362,10 +364,10 @@ TEST(EdgeCasesTest, ChainWithSingle) {
 TEST(EdgeCasesTest, ZipEmptyWithNonEmpty) {
   std::vector<int> vec1;
   std::vector<int> vec2 = { 1, 2, 3 };
-  
+
   size_t count = 0;
   for (auto [a, b] : itertools::iter(vec1)
-      .to<itertools::transformations::Zip>(itertools::iter(vec2))) {
+    .to<itertools::transformations::Zip>(itertools::iter(vec2))) {
     (void)a;
     (void)b;
     ++count;
@@ -376,11 +378,11 @@ TEST(EdgeCasesTest, ZipEmptyWithNonEmpty) {
 TEST(EdgeCasesTest, ZipSingleWithSingle) {
   std::vector<int> vec1 = { 1 };
   std::vector<int> vec2 = { 10 };
-  
+
   size_t count = 0;
   int a_val = 0, b_val = 0;
   for (auto [a, b] : itertools::iter(vec1)
-      .to<itertools::transformations::Zip>(itertools::iter(vec2))) {
+    .to<itertools::transformations::Zip>(itertools::iter(vec2))) {
     a_val = a;
     b_val = b;
     ++count;
@@ -393,7 +395,7 @@ TEST(EdgeCasesTest, ZipSingleWithSingle) {
 TEST(EdgeCasesTest, ZipVeryDifferentSizes) {
   std::vector<int> vec1 = { 1 };
   std::vector<int> vec2 = { 10, 20, 30, 40, 50 };
-  
+
   size_t count = itertools::iter(vec1)
     .to<itertools::transformations::Zip>(itertools::iter(vec2))
     .to<itertools::transformations::Count>();
@@ -405,19 +407,19 @@ TEST(EdgeCasesTest, MapIntToDouble) {
   std::vector<int> vec = { 1, 2, 3 };
   double sum = 0.0;
   for (double d : itertools::iter(vec)
-      .to<itertools::transformations::Map>([](int x) { return x * 1.5; })) {
+    .to<itertools::transformations::Map>([](int x) { return x * 1.5; })) {
     sum += d;
   }
-  EXPECT_DOUBLE_EQ(sum, 9.0); // 1.5 + 3.0 + 4.5
+  EXPECT_DOUBLE_EQ(sum, 9.0);  // 1.5 + 3.0 + 4.5
 }
 
 TEST(EdgeCasesTest, MapToBool) {
   std::vector<int> vec = { 0, 1, 2, 0, 3 };
   std::vector<bool> expected = { false, true, true, false, true };
-  
+
   size_t j = 0;
   for (bool b : itertools::iter(vec)
-      .to<itertools::transformations::Map>([](int x) { return x != 0; })) {
+    .to<itertools::transformations::Map>([](int x) { return x != 0; })) {
     EXPECT_EQ(b, expected[j]);
     ++j;
   }
@@ -479,7 +481,7 @@ TEST(EdgeCasesTest, ForEachOnEmpty) {
   std::vector<int> vec;
   bool called = false;
   itertools::iter(vec)
-    .to<itertools::transformations::ForEach>([&called](int x) {
+  .to<itertools::transformations::ForEach>([&called](int x) {
       (void)x;
       called = true;
     });
@@ -491,7 +493,7 @@ TEST(EdgeCasesTest, ForEachMultipleEffects) {
   int sum = 0;
   int product = 1;
   itertools::iter(vec)
-    .to<itertools::transformations::ForEach>([&sum, &product](int x) {
+  .to<itertools::transformations::ForEach>([&sum, &product](int x) {
       sum += x;
       product *= x;
     });

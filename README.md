@@ -26,7 +26,7 @@ auto result = range(0, 10)
 // Iterate over containers
 std::vector<int> vec = {1, 2, 3, 4, 5};
 for (auto x : iter(vec).to<transformations::Map>([](int x) { return x * 2; })) {
-    std::cout << x << " "; // 2 4 6 8 10
+    std::cout << x << " ";  // 2 4 6 8 10
 }
 ```
 

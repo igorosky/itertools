@@ -19,7 +19,7 @@ target_link_libraries(demo itertools)
 
 target_include_directories(demo PRIVATE include)
 
-if (TESTING)
+if(TESTING)
   enable_testing()
   find_package(GTest REQUIRED)
 

@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
-#include <itertools.hpp>
+
 #include <vector>
+
+#include <itertools.hpp>
 
 TEST(RangeTest, BasicRange) {
   std::vector<int> expected = { 0, 1, 2, 3, 4 };
@@ -95,7 +97,7 @@ TEST(RangeInfTest, InfiniteRangeStartZero) {
   for (int i : itertools::rangeInf(0)) {
     EXPECT_EQ(i, j);
     ++j;
-    if (j >= 10) break;
+    if (j >= 10) { break; }
   }
   EXPECT_EQ(j, 10);
 }
@@ -105,7 +107,7 @@ TEST(RangeInfTest, InfiniteRangeStartNonZero) {
   for (int i : itertools::rangeInf(100)) {
     EXPECT_EQ(i, j);
     ++j;
-    if (j >= 110) break;
+    if (j >= 110) { break; }
   }
   EXPECT_EQ(j, 110);
 }
@@ -115,7 +117,7 @@ TEST(RangeInfTest, InfiniteRangeWithStep) {
   for (int i : itertools::rangeInf(0, 5)) {
     EXPECT_EQ(i, j);
     j += 5;
-    if (j >= 50) break;
+    if (j >= 50) { break; }
   }
   EXPECT_EQ(j, 50);
 }
@@ -125,7 +127,7 @@ TEST(RangeInfTest, InfiniteRangeNegativeStart) {
   for (int i : itertools::rangeInf(-10)) {
     EXPECT_EQ(i, j);
     ++j;
-    if (j >= 0) break;
+    if (j >= 0) { break; }
   }
   EXPECT_EQ(j, 0);
 }
@@ -135,7 +137,7 @@ TEST(RangeInfTest, InfiniteRangeNegativeStep) {
   for (int i : itertools::rangeInf(100, -5)) {
     EXPECT_EQ(i, j);
     j -= 5;
-    if (j <= 50) break;
+    if (j <= 50) { break; }
   }
   EXPECT_EQ(j, 50);
 }
@@ -149,7 +151,7 @@ TEST(RangeTest, RangeUsedInCount) {
 TEST(RangeTest, RangeUsedInSum) {
   int sum = itertools::range(1, 6)
     .to<itertools::transformations::Sum>();
-  EXPECT_EQ(sum, 15); // 1+2+3+4+5
+  EXPECT_EQ(sum, 15);  // 1 + 2 + 3 + 4 + 5
 }
 
 TEST(RangeTest, RangeOneElement) {

@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
-#include <itertools.hpp>
+
 #include <vector>
+
+#include <itertools.hpp>
 
 TEST(BasicTest, RangeFunctionality) {
   int j = 0;
@@ -69,7 +71,7 @@ TEST(BasicTest, MapTransformation) {
   std::vector<int> expected = { 1, 4, 9 };
   size_t j = 0;
   for (int i : itertools::iter(vec).to<itertools::transformations::Map>(
-        [](int x) { return x * x; })) {
+      [](int x) { return x * x; })) {
     EXPECT_EQ(i, expected[j]);
     ++j;
   }
@@ -80,7 +82,7 @@ TEST(BasicTest, FilterTransformation) {
   std::vector<int> expected = { 2, 4, 6 };
   size_t j = 0;
   for (int i : itertools::iter(vec).to<itertools::transformations::Filter>(
-        [](int x) { return x % 2 == 0; })) {
+      [](int x) { return x % 2 == 0; })) {
     EXPECT_EQ(i, expected[j]);
     ++j;
   }

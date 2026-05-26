@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 
-//     http://www.apache.org/licenses/LICENSE-2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -62,12 +62,13 @@ public:
 
 // Iterable implementation
 
-template <typename T, typename Generator>
+template<typename T, typename Generator>
 class Iterable {
 public:
   class Iterator {
     struct Empty { };
-  public:
+
+public:
     using stored_type = std::conditional_t<
       std::is_lvalue_reference_v<T>,
       std::add_pointer_t<std::remove_reference_t<T>>,
@@ -78,7 +79,7 @@ public:
     struct iterator_category : public
       std::input_iterator_tag,
       std::conditional_t<
-        !std::is_const_v<T> && std::is_lvalue_reference_v<T>,
+        !std::is_const_v<T>&& std::is_lvalue_reference_v<T>,
         std::output_iterator_tag,
         Empty
       >
@@ -90,7 +91,7 @@ public:
     static_assert(std::is_invocable_r_v<std::optional<stored_type>, Generator>,
       "Generator must be callable and return std::optional<T> - if T is a reference, it must return std::optional<T*>");
 
-  private:
+private:
     friend class Iterable<T, Generator>;
 
     std::optional<stored_type> _value;
@@ -100,21 +101,21 @@ public:
     Iterator() = default;
 
     explicit Iterator(Generator&& generator)
-      noexcept(noexcept(generator()) && std::is_nothrow_move_constructible_v<Generator>)
+    noexcept(noexcept(generator()) && std::is_nothrow_move_constructible_v<Generator>)
     : _value(generator()),
       _generator(std::move(generator)) { }
 
-  public:
+public:
     Iterator& operator++() noexcept(noexcept(_value = _generator.value()())) {
       _value.reset();
       _value = _generator.value()();
       return *this;
     }
     Iterator operator++(int)
-        noexcept(noexcept(_value = _generator.value()()) && std::is_nothrow_copy_constructible_v<Iterator>) {
+    noexcept(noexcept(_value = _generator.value()()) && std::is_nothrow_copy_constructible_v<Iterator>) {
       auto temp = *this;
       _value.reset();
-      _value = _generator.value()();;
+      _value = _generator.value()();
       return temp;
     }
     value_type operator*() {
@@ -135,12 +136,12 @@ public:
       return _value.has_value() != other._value.has_value();
     }
     std::optional<stored_type> next()
-        noexcept(std::is_nothrow_constructible_v<std::optional<stored_type>> && noexcept(++(*this))) {
+    noexcept(std::is_nothrow_constructible_v<std::optional<stored_type>>&& noexcept(++(*this))) {
       IT_DEFER(([this, not_last = _value.has_value()]() noexcept(noexcept(++(*this))) {
-        if (not_last) {
-          ++(*this);
-        }
-      }));
+          if (not_last) {
+            ++(*this);
+          }
+        }));
       return std::move(_value);
     }
     static inline value_type get_val(std::optional<stored_type>& opt) {
@@ -158,43 +159,43 @@ private:
 
 public:
   explicit Iterable(Generator&& generator) noexcept(noexcept(Iterator(std::move(generator))))
-    : _begin(std::move(generator)) { }
+  : _begin(std::move(generator)) { }
 
-  Iterator begin() const & noexcept(std::is_nothrow_copy_assignable_v<Iterator>) {
+  Iterator begin() const& noexcept(std::is_nothrow_copy_assignable_v<Iterator>) {
     return _begin;
   }
   Iterator begin() && noexcept(noexcept(std::is_nothrow_move_assignable_v<Iterator>)) {
     return std::move(_begin);
   }
-  Iterator end() const & noexcept(std::is_nothrow_copy_assignable_v<Iterator>) {
+  Iterator end() const& noexcept(std::is_nothrow_copy_assignable_v<Iterator>) {
     return _end;
   }
   Iterator end() && noexcept(noexcept(std::is_nothrow_move_assignable_v<Iterator>)) {
     return std::move(_end);
   }
 
-  template <typename E, typename ... Args>
-  auto to(Args&& ... args) const & noexcept(std::is_nothrow_constructible_v<E, const Iterable&, Args&&...>) {
-    return E{}(*this, std::forward<Args>(args)...);
+  template<typename E, typename ... Args>
+  auto to(Args&& ... args) const& noexcept(std::is_nothrow_constructible_v<E, const Iterable&, Args&&...>) {
+    return E{ }(*this, std::forward<Args>(args)...);
   }
 
-  template <typename E, typename ... Args>
+  template<typename E, typename ... Args>
   auto to(Args&& ... args) && noexcept(std::is_nothrow_constructible_v<E, Iterable&&, Args&&...>) {
-    return E{}(std::move(*this), std::forward<Args>(args)...);
+    return E{ }(std::move(*this), std::forward<Args>(args)...);
   }
 };
 
 namespace generators {
-template <typename Iter>
+template<typename Iter>
 struct FromIter {
   using prev_iter = decltype(std::declval<Iter>().begin());
   using prev_value_type = decltype(*std::declval<prev_iter>());
   constexpr static bool is_lvalue_ref = std::is_lvalue_reference_v<prev_value_type>;
   using value_type = std::conditional_t<
-      is_lvalue_ref,
-      std::add_pointer_t<std::remove_reference_t<prev_value_type>>,
-      prev_value_type
-    >;
+    is_lvalue_ref,
+    std::add_pointer_t<std::remove_reference_t<prev_value_type>>,
+    prev_value_type
+  >;
   prev_iter begin;
   const prev_iter end;
   std::optional<value_type> operator()() {
@@ -209,7 +210,7 @@ struct FromIter {
     return std::nullopt;
   }
 };
-template <typename T>
+template<typename T>
 struct FromIter<std::initializer_list<T>> {
   constexpr static bool is_lvalue_ref = std::is_lvalue_reference_v<T>;
   using value_type = const T*;
@@ -223,34 +224,34 @@ struct FromIter<std::initializer_list<T>> {
   }
 };
 
-template <typename T>
+template<typename T>
 struct RangeInf {
   T current;
   const T step;
-  std::optional<T> operator()() noexcept(noexcept(current += step) && 
-                                std::is_nothrow_copy_constructible_v<T> &&
-                                std::is_nothrow_constructible_v<std::optional<T>, T>) {
+  std::optional<T> operator()() noexcept(noexcept(current += step) &&
+  std::is_nothrow_copy_constructible_v<T>&&
+  std::is_nothrow_constructible_v<std::optional<T>, T>) {
     IT_DEFER([this]() noexcept(noexcept(current += step)) {
-      current += step;
+          current += step;
     });
     return std::optional<T>(current);
   }
 };
 
-template <typename T>
+template<typename T>
 struct RangeGenerator {
   T current;
   const T end;
   const T step;
   std::optional<T> operator()() noexcept(noexcept(current >= end) && noexcept(current += step) &&
-                                std::is_nothrow_copy_constructible_v<T> &&
-                                std::is_nothrow_constructible_v<std::optional<T>> &&
-                                std::is_nothrow_constructible_v<std::optional<T>, T>) {
+  std::is_nothrow_copy_constructible_v<T>&&
+  std::is_nothrow_constructible_v<std::optional<T>>&&
+  std::is_nothrow_constructible_v<std::optional<T>, T>) {
     if ((current >= end && step > 0 ) || (current <= end && step < 0)) {
       return std::optional<T>{ };
     }
     IT_DEFER([this]() noexcept(noexcept(current += step)) {
-      current += step;
+          current += step;
     });
     return std::optional<T>(current);
   }
@@ -259,13 +260,13 @@ struct RangeGenerator {
 
 // Utility transformations
 
-template <typename Iter>
-auto iter(const Iter& iter) noexcept(noexcept(iter.begin()) && noexcept(iter.end()) && 
-                              std::is_nothrow_constructible_v<generators::FromIter<Iter>, Iter, Iter> &&
-                              std::is_nothrow_constructible_v<Iterable<
-                                decltype(*iter.begin()),
-                                generators::FromIter<Iter>>,
-                                generators::FromIter<Iter>>) {
+template<typename Iter>
+auto iter(const Iter& iter) noexcept(noexcept(iter.begin()) && noexcept(iter.end()) &&
+std::is_nothrow_constructible_v<generators::FromIter<Iter>, Iter, Iter>&&
+std::is_nothrow_constructible_v<Iterable<
+  decltype(*iter.begin()),
+  generators::FromIter<Iter>>,
+generators::FromIter<Iter>>) {
   using prev_iter = decltype(std::declval<const Iter&>().begin());
   using prev_value_type = decltype(*std::declval<prev_iter>());
   return Iterable<prev_value_type, generators::FromIter<const Iter&>>{
@@ -273,13 +274,13 @@ auto iter(const Iter& iter) noexcept(noexcept(iter.begin()) && noexcept(iter.end
   };
 }
 
-template <typename Iter>
-auto iter(Iter&& iter) noexcept(noexcept(iter.begin()) && noexcept(iter.end()) && 
-                        std::is_nothrow_constructible_v<generators::FromIter<Iter>, Iter, Iter> &&
-                        std::is_nothrow_constructible_v<Iterable<
-                          decltype(*iter.begin()),
-                          generators::FromIter<Iter>>,
-                          generators::FromIter<Iter>>) {
+template<typename Iter>
+auto iter(Iter&& iter) noexcept(noexcept(iter.begin()) && noexcept(iter.end()) &&
+std::is_nothrow_constructible_v<generators::FromIter<Iter>, Iter, Iter>&&
+std::is_nothrow_constructible_v<Iterable<
+  decltype(*iter.begin()),
+  generators::FromIter<Iter>>,
+generators::FromIter<Iter>>) {
   using prev_iter = decltype(std::declval<Iter>().begin());
   using prev_value_type = decltype(*std::declval<prev_iter>());
   static_assert(std::is_lvalue_reference_v<Iter>, "iter() requires an lvalue or const lvalue reference");
@@ -288,13 +289,13 @@ auto iter(Iter&& iter) noexcept(noexcept(iter.begin()) && noexcept(iter.end()) &
   };
 }
 
-template <typename Iter>
+template<typename Iter>
 auto iter(Iter&& begin, Iter&& end) noexcept(noexcept(std::move(begin)) && noexcept(std::move(end)) &&
-                        std::is_nothrow_constructible_v<generators::FromIter<Iter>, Iter, Iter> &&
-                        std::is_nothrow_constructible_v<Iterable<
-                          decltype(*begin),
-                          generators::FromIter<Iter>>,
-                          generators::FromIter<Iter>>) {
+std::is_nothrow_constructible_v<generators::FromIter<Iter>, Iter, Iter>&&
+std::is_nothrow_constructible_v<Iterable<
+  decltype(*begin),
+  generators::FromIter<Iter>>,
+generators::FromIter<Iter>>) {
   using prev_iter = decltype(begin);
   using prev_value_type = decltype(*std::declval<prev_iter>());
   return Iterable<prev_value_type, generators::FromIter<Iter>>{
@@ -302,34 +303,40 @@ auto iter(Iter&& begin, Iter&& end) noexcept(noexcept(std::move(begin)) && noexc
   };
 }
 
-template <typename T>
+template<typename T>
 auto iter(std::initializer_list<T> iter) noexcept(
-                  std::is_nothrow_constructible_v<
-                    generators::FromIter<std::initializer_list<T>>,
-                    decltype(iter.begin()),
-                    decltype(iter.end())
-                  > &&
-                  std::is_nothrow_constructible_v<
-                    Iterable<const T&, generators::FromIter<std::initializer_list<T>>>,
-                    generators::FromIter<std::initializer_list<T>>
-                  >) {
+  std::is_nothrow_constructible_v<
+    generators::FromIter<std::initializer_list<T>>,
+    decltype(iter.begin()),
+    decltype(iter.end())
+  >&&
+  std::is_nothrow_constructible_v<
+    Iterable<const T&, generators::FromIter<std::initializer_list<T>>>,
+    generators::FromIter<std::initializer_list<T>>
+  >) {
   return Iterable<const T&, generators::FromIter<std::initializer_list<T>>>{
     { iter.begin(), iter.end() }
   };
 }
 
-template <typename T>
-auto rangeInf(T&& start, T&& step = 1) noexcept(noexcept(Iterable<std::decay_t<T>, generators::RangeInf<std::decay_t<T>>>{{
-    std::forward<T>(start), std::forward<T>(step) }})) {
+template<typename T>
+auto rangeInf(T&& start, T&& step = 1) noexcept(noexcept(Iterable<std::decay_t<T>,
+generators::RangeInf<std::decay_t<T>>> {
+    {
+      std::forward<T>(start), std::forward<T>(step)
+    }
+  })) {
   using DecayedT = std::decay_t<T>;
   return Iterable<DecayedT, generators::RangeInf<DecayedT>>{
     { std::forward<T>(start), std::forward<T>(step) }
   };
 }
 
-template <typename T>
-auto range(T&& start, T&& end, std::decay_t<T>&& step = 1) noexcept(noexcept(Iterable<std::decay_t<T>, generators::RangeGenerator<std::decay_t<T>>>{
-    { std::forward<T>(start), std::forward<T>(end), std::forward<T>(step) }})) {
+template<typename T>
+auto range(T&& start, T&& end, std::decay_t<T>&& step = 1) noexcept(noexcept(Iterable<std::decay_t<T>,
+generators::RangeGenerator<std::decay_t<T>>> {
+    { std::forward<T>(start), std::forward<T>(end), std::forward<T>(step) }
+  })) {
   using DecayedT = std::decay_t<T>;
   return Iterable<DecayedT, generators::RangeGenerator<DecayedT>>{
     { std::forward<T>(start), std::forward<T>(end), std::forward<T>(step) }
@@ -340,7 +347,7 @@ auto range(T&& start, T&& end, std::decay_t<T>&& step = 1) noexcept(noexcept(Ite
 
 namespace transformations {
 struct Count {
-  template <typename T, typename Iter>
+  template<typename T, typename Iter>
   auto operator()(Iterable<T, Iter> iter) const {
     size_t count = 0;
     auto it = iter.begin();
@@ -352,7 +359,7 @@ struct Count {
 };
 
 struct Sum {
-  template <typename T, typename Iter>
+  template<typename T, typename Iter>
   auto operator()(Iterable<T, Iter> iter) const {
     std::remove_reference_t<typename Iterable<T, Iter>::Iterator::value_type> total = 0;
     auto it = iter.begin();
@@ -364,7 +371,7 @@ struct Sum {
 };
 
 struct Map {
-  template <typename T, typename Iter, typename Func>
+  template<typename T, typename Iter, typename Func>
   auto operator()(Iterable<T, Iter> it, Func&& func) const {
     using new_value_type = std::invoke_result_t<Func, decltype(*it.begin())>;
     static_assert(!std::is_reference_v<new_value_type>,
@@ -389,7 +396,7 @@ struct Map {
 };
 
 struct Filter {
-  template <typename T, typename Iter, typename Func>
+  template<typename T, typename Iter, typename Func>
   auto operator()(Iterable<T, Iter> it, Func&& func) const {
     struct Filterer {
       decltype(it.begin()) iter;
@@ -409,16 +416,16 @@ struct Filter {
   }
 };
 
-template <typename Target>
+template<typename Target>
 struct Collect {
-  template <typename T, typename Iter>
+  template<typename T, typename Iter>
   auto operator()(Iterable<T, Iter> iter) const {
     return Target(iter.begin(), iter.end());
   }
 };
 
 struct ForEach {
-  template <typename T, typename Iter, typename Func>
+  template<typename T, typename Iter, typename Func>
   void operator()(Iterable<T, Iter> iter, Func&& func) const {
     auto it = iter.begin();
     while (auto val = it.next()) {
@@ -428,7 +435,7 @@ struct ForEach {
 };
 
 struct Zip {
-  template <typename T, typename Iter, typename Y, typename OtherIter>
+  template<typename T, typename Iter, typename Y, typename OtherIter>
   auto operator()(Iterable<T, Iter> iter, Iterable<Y, OtherIter> other) const {
     using iter_type = decltype(iter.begin());
     using other_type = decltype(other.begin());
@@ -455,7 +462,7 @@ struct Zip {
 };
 
 struct Unique {
-  template <typename T, typename Iter>
+  template<typename T, typename Iter>
   auto operator()(Iterable<T, Iter> iter) const {
     using iter_type = decltype(iter.begin());
     using stored_type = typename iter_type::stored_type;
@@ -485,7 +492,7 @@ struct Unique {
 };
 
 struct Chain {
-  template <typename T, typename Iter, typename Iter2>
+  template<typename T, typename Iter, typename Iter2>
   auto operator()(Iterable<T, Iter> iter, Iterable<T, Iter2> iter2) const {
     using iter_type = decltype(iter.begin());
     using iter2_type = decltype(iter2.begin());
@@ -513,17 +520,17 @@ struct Chain {
 };
 
 struct FirstN {
-  template <typename T, typename Iter>
+  template<typename T, typename Iter>
   auto operator()(Iterable<T, Iter> iter, size_t n) const {
     using iter_type = decltype(iter.begin());
-    
+
     struct Firsterer {
       iter_type iter;
       size_t remaining;
 
       auto operator()() {
         if (remaining == 0) {
-          return decltype(iter.next()){ };
+          return decltype(iter.next()) { };
         }
         --remaining;
         return iter.next();
@@ -535,9 +542,9 @@ struct FirstN {
   }
 };
 
-template <bool is_eager = true>
+template<bool is_eager = true>
 struct SkipN {
-  template <typename T, typename Iter>
+  template<typename T, typename Iter>
   auto operator()(Iterable<T, Iter> iter, size_t n) const {
     using iter_type = decltype(iter.begin());
 
@@ -571,14 +578,14 @@ struct SkipN {
 };
 
 struct Dedup {
-  template <typename T, typename Iter>
+  template<typename T, typename Iter>
   auto operator()(Iterable<T, Iter> iter) const {
     using iter_type = decltype(iter.begin());
     using stored_type = typename iter_type::stored_type;
     static_assert(std::is_copy_constructible_v<stored_type>,
       "Dedup transformation requires copy-constructible value type");
     // static_assert(std::is_eq<T>,
-    //   "Dedup transformation requires equality-comparable value type");
+    // "Dedup transformation requires equality-comparable value type");
 
     struct Deduplicator {
       iter_type iter;
